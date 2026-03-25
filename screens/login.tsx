@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const Login = ({ navigation }: any) => {
@@ -21,7 +22,7 @@ const Login = ({ navigation }: any) => {
   };
 
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if(!emailRegex.test(email)){
@@ -33,6 +34,8 @@ const Login = ({ navigation }: any) => {
     if (email === usuario.email && password === usuario.password) {
       setError("");
       setSuccess(true);
+      await AsyncStorage.setItem('isLoggedIn', 'true');
+      navigation.replace("Home");;
     } else {
       setSuccess(false);
       setError("Correo o contraseña incorrectos");
@@ -66,7 +69,6 @@ const Login = ({ navigation }: any) => {
       </TouchableOpacity>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {success ? navigation.navigate("Cliente") : null}
 
       <Text style={styles.footer}>
         ¿No tienes cuenta?

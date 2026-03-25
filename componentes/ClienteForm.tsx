@@ -3,7 +3,7 @@ import { View, TextInput, TouchableOpacity, Text, StyleSheet } from "react-nativ
 export default function ClientForm({
   nombre, apellido, correo, fecha,
   setNombre, setApellido, setCorreo, setFecha,
-  onSave, editing
+  onSave, editing, onCancel
 }: any) {
   return (
     <View style={styles.card}>
@@ -40,11 +40,17 @@ export default function ClientForm({
         style={styles.input}
       />
 
-      <TouchableOpacity style={styles.button} onPress={onSave}>
-        <Text style={styles.buttonText}>
-          {editing ? "Actualizar" : "Crear"}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button} onPress={onSave}>
+          <Text style={styles.buttonText}>
+            {editing ? "Actualizar" : "Crear"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+          <Text style={styles.cancelButtonText}>Cancelar</Text>
+        </TouchableOpacity>
+      </View>
 
     </View>
   );
@@ -64,13 +70,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
   },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   button: {
     backgroundColor: "#3B82F6",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
+    flex: 1,
+    marginRight: 5,
   },
   buttonText: {
+    color: "#F1F5F9",
+    fontWeight: "bold",
+  },
+  cancelButton: {
+    backgroundColor: "#6B7280",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    flex: 1,
+    marginLeft: 5,
+  },
+  cancelButtonText: {
     color: "#F1F5F9",
     fontWeight: "bold",
   },
