@@ -20,8 +20,73 @@ export default function ClientScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  const [errors, setErrors] = useState({
+    nombre: '',
+    apellido: '',
+    correo: '',
+    fecha: '',
+  });
+
+  const validate = () => {
+    let valid = true;
+    let newErrors = {
+      nombre: '',
+      apellido: '',
+      correo: '',
+      fecha: '',
+    };
+
+    if (!nombre.trim()) {
+      newErrors.nombre = 'El nombre es obligatorio';
+      valid = false;
+    }
+
+    if (!apellido.trim()) {
+      newErrors.apellido = 'El apellido es obligatorio';
+      valid = false;
+    }
+
+    if (!correo.trim()) {
+      newErrors.correo = 'El correo es obligatorio';
+      valid = false;
+    } else if (!/\S+@\S+\.\S+/.test(correo)) {
+      newErrors.correo = 'Correo inválido';
+      valid = false;
+    }
+
+    if (!fecha.trim()) {
+  newErrors.fecha = 'La fecha es obligatoria';
+  valid = false;
+} else {
+
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (!regex.test(fecha)) {
+    newErrors.fecha = 'Formato inválido (YYYY-MM-DD)';
+    valid = false;
+  } else {
+    
+    const [year, month, day] = fecha.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+
+    const isValidDate =
+      dateObj.getFullYear() === year &&
+      dateObj.getMonth() === month - 1 &&
+      dateObj.getDate() === day;
+
+    if (!isValidDate) {
+      newErrors.fecha = 'Fecha no válida';
+      valid = false;
+    }
+  }
+}
+
+    setErrors(newErrors);
+    return valid;
+  };
+
   const handleSave = () => {
-    if (!nombre || !apellido || !correo || !fecha) return;
+    if (!validate()) return;
 
     if (editingId) {
       setClients(prev =>
@@ -43,11 +108,7 @@ export default function ClientScreen() {
       setClients(prev => [...prev, newClient]);
     }
 
-    setNombre('');
-    setApellido('');
-    setCorreo('');
-    setFecha('');
-    setShowForm(false);
+    handleCancel();
   };
 
   const handleCancel = () => {
@@ -57,6 +118,13 @@ export default function ClientScreen() {
     setFecha('');
     setEditingId(null);
     setShowForm(false);
+
+    setErrors({
+      nombre: '',
+      apellido: '',
+      correo: '',
+      fecha: '',
+    });
   };
 
   const handleEdit = (client: Client) => {
@@ -96,6 +164,7 @@ export default function ClientScreen() {
           onSave={handleSave}
           editing={!!editingId}
           onCancel={handleCancel}
+          errors={errors}
         />
       )}
 
