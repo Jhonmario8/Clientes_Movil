@@ -19,7 +19,7 @@ function DrawerMenu() {
   drawerContent={(props) => <CustomDrawer {...props} />}
   screenOptions={{
     headerShown: false,
-    drawerType: "permanent", // 👈 ESTA ES LA CLAVE
+    drawerType: "permanent", 
     drawerStyle: {
       width: 240,
       backgroundColor: "#0F172A",
@@ -28,8 +28,6 @@ function DrawerMenu() {
 >
       <Drawer.Screen name="Inicio" component={Home} />
       <Drawer.Screen name="Clientes" component={Cliente} />
-      <Drawer.Screen name="Reportes" component={Home} />
-      <Drawer.Screen name="Ajustes" component={Home} />
     </Drawer.Navigator>
   );
 }

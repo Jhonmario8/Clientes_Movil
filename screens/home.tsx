@@ -6,7 +6,7 @@ const Home = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Bienvenido a Clientes Móvil</Text>
       <Text style={styles.subtitle}>
-        Usa el menú de la izquierda para navegar
+        Este es el Home
       </Text>
     </View>
   );

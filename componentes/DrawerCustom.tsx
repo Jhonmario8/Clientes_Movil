@@ -29,17 +29,6 @@ const CustomDrawer = (props: any) => {
         onPress={() => props.navigation.navigate("Clientes")}
       />
 
-      <DrawerItem
-        label="Reportes"
-        labelStyle={styles.label}
-        onPress={() => {}}
-      />
-
-      <DrawerItem
-        label="Ajustes"
-        labelStyle={styles.label}
-        onPress={() => {}}
-      />
 
       <DrawerItem
         label="Cerrar sesión"

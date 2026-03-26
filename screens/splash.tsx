@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Splash = ({ navigation }: any) => {
   useEffect(() => {
-    const checkLoginStatus = async () => {
+    const validacionLogin = async () => {
       try {
         const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
         if (isLoggedIn === 'true') {
@@ -18,8 +18,7 @@ const Splash = ({ navigation }: any) => {
       }
     };
 
-    // Simular un pequeño delay para mostrar el splash
-    setTimeout(checkLoginStatus, 1000);
+    setTimeout(validacionLogin, 500);
   }, [navigation]);
 
   return (
