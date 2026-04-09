@@ -1,5 +1,5 @@
 // pantallas/ClientScreen.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   FlatList,
@@ -10,54 +10,67 @@ import {
 import ClientForm from "../componentes/ClienteForm";
 import ClientItem from "../componentes/ClienteItem";
 import { Client } from "../modelo/Cliente";
+import { getClientes, saveCliente, deleteCliente } from "../modelo/database/DatabaseService";
 
 export default function ClientScreen({ navigation }: any) {
   const [clients, setClients] = useState<Client[]>([]);
-
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
   const [fecha, setFecha] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
-    if (!nombre || !apellido || !correo || !fecha) return;
+  useEffect(() => {
+    cargarClientes();
+  }, []);
 
-    if (editingId) {
-      setClients(prev =>
-        prev.map(c =>
-          c.id === editingId
-            ? { ...c, nombre, apellido, correo, fecha }
-            : c
-        )
-      );
-      setEditingId(null);
-    } else {
-      const newClient: Client = {
-        id: Date.now().toString(),
-        nombre,
-        apellido,
-        correo,
-        fecha,
-      };
-      setClients(prev => [...prev, newClient]);
-    }
-
-    setNombre('');
-    setApellido('');
-    setCorreo('');
-    setFecha('');
-    setShowForm(false);
+  // ✅ CORREGIDO: Agregar async/await
+  const cargarClientes = async () => {
+    console.log('🔄 Cargando clientes...');
+    setLoading(true);
+    const clientesDB = await getClientes();  // ← AGREGAR await
+    console.log('📊 Clientes cargados:', clientesDB.length);
+    setClients(clientesDB);
+    setLoading(false);
   };
 
-  const handleCancel = () => {
+  // ✅ CORREGIDO: Agregar async/await
+  const handleSave = async () => {
+    if (!nombre || !apellido || !correo || !fecha) {
+      console.log('⚠️ Campos incompletos');
+      return;
+    }
+
+    const client: Client = {
+      id: editingId || Date.now().toString(),
+      nombre,
+      apellido,
+      correo,
+      fecha,
+    };
+
+    console.log('💾 Guardando cliente:', client.nombre);
+    const success = await saveCliente(client);  // ← AGREGAR await
+    
+    if (success) {
+      await cargarClientes();  // ← AGREGAR await
+      limpiarFormulario();
+    }
+  };
+
+  const limpiarFormulario = () => {
     setNombre('');
     setApellido('');
     setCorreo('');
     setFecha('');
     setEditingId(null);
     setShowForm(false);
+  };
+
+  const handleCancel = () => {
+    limpiarFormulario();
   };
 
   const handleEdit = (client: Client) => {
@@ -69,8 +82,13 @@ export default function ClientScreen({ navigation }: any) {
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
+  // ✅ CORREGIDO: Agregar async/await
+  const handleDelete = async (id: string) => {
+    console.log('🗑️ Eliminando cliente:', id);
+    const success = await deleteCliente(id);  // ← AGREGAR await
+    if (success) {
+      await cargarClientes();  // ← AGREGAR await
+    }
   };
 
   const handleSelectClient = (client: Client) => {
@@ -79,7 +97,6 @@ export default function ClientScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-
       <Text style={styles.title}>Clientes</Text>
 
       {!showForm && (
@@ -104,21 +121,25 @@ export default function ClientScreen({ navigation }: any) {
         />
       )}
 
-      <FlatList
-        data={clients}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <ClientItem
-            client={item}
-            onEdit={() => handleEdit(item)}
-            onDelete={() => handleDelete(item.id)}
-            onSelect={() => handleSelectClient(item)}
-          />
-        )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No hay clientes aún</Text>
-        }
-      />
+      {loading ? (
+        <Text style={styles.loading}>Cargando clientes...</Text>
+      ) : (
+        <FlatList
+          data={clients}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <ClientItem
+              client={item}
+              onEdit={() => handleEdit(item)}
+              onDelete={() => handleDelete(item.id)}
+              onSelect={() => handleSelectClient(item)}
+            />
+          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No hay clientes aún</Text>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -148,6 +169,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   empty: {
+    color: "#94A3B8",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  loading: {
     color: "#94A3B8",
     textAlign: "center",
     marginTop: 20,

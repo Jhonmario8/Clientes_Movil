@@ -41,6 +41,11 @@ const CustomDrawer = (props: any) => {
         labelStyle={{ color: "#ef4444", fontWeight: "bold" }}
         onPress={handleLogout}
       />
+      <DrawerItem
+        label="📦 Admin Productos"
+        labelStyle={styles.label}
+        onPress={() => props.navigation.navigate("AdminProductos")}
+      />
     </DrawerContentScrollView>
   );
 };

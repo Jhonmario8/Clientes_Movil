@@ -22,7 +22,14 @@ const Home = ({ navigation }: any) => {
           style={[styles.menuButton, styles.productosButton]}
           onPress={() => navigation.navigate("Productos")}
         >
-          <Text style={styles.menuButtonText}>🛍️ Ver Productos</Text>
+          <Text style={styles.menuButtonText}>🛍️ Realizar Compra</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.menuButton, styles.adminButton]}
+          onPress={() => navigation.navigate("AdminProductos")}
+        >
+          <Text style={styles.menuButtonText}>📦 Administrar Productos</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -64,6 +71,9 @@ const styles = StyleSheet.create({
   },
   productosButton: {
     backgroundColor: "#10B981",
+  },
+  adminButton: {
+    backgroundColor: "#8B5CF6",
   },
   menuButtonText: {
     color: "#F1F5F9",

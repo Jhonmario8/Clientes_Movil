@@ -16,44 +16,7 @@ import CarritoDrawer from "../componentes/CarritoDrawer";
 import { Encabezado } from "../modelo/Encabezado";
 import ToastPersonalizado from "../componentes/ToastPersonalizado";
 import { useToast } from "../componentes/useToast";
-
-const productosIniciales: Product[] = [
-  {
-    id: "1",
-    nombre: "Laptop HP",
-    descripcion: "8GB RAM, 512GB SSD",
-    valorUnitario: 850.00,
-    stock: 10
-  },
-  {
-    id: "2",
-    nombre: "Mouse Inalámbrico",
-    descripcion: "Ergonómico, 2.4GHz",
-    valorUnitario: 25.50,
-    stock: 50
-  },
-  {
-    id: "3",
-    nombre: "Teclado Mecánico",
-    descripcion: "RGB, Switches Blue",
-    valorUnitario: 75.99,
-    stock: 30
-  },
-  {
-    id: "4",
-    nombre: "Monitor 24\"",
-    descripcion: "Full HD, 75Hz",
-    valorUnitario: 180.00,
-    stock: 15
-  },
-  {
-    id: "5",
-    nombre: "Auriculares USB",
-    descripcion: "Con micrófono, sonido envolvente",
-    valorUnitario: 45.50,
-    stock: 25
-  }
-];
+import { getProductos, saveCompra } from "../modelo/database/DatabaseService";
 
 interface ProductosScreenProps {
   navigation: any;
@@ -61,24 +24,17 @@ interface ProductosScreenProps {
 }
 
 export default function ProductosScreen({ navigation, route }: ProductosScreenProps) {
-  const [productos, setProductos] = useState<Product[]>(productosIniciales);
+  const [productos, setProductos] = useState<Product[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Client | null>(null);
-  const [carrito, setCarrito] = useState<Array<{ producto: Product, cantidad: number }>>([]);
+  const [carrito, setCarrito] = useState<Array<{producto: Product, cantidad: number}>>([]);
   const [showCarrito, setShowCarrito] = useState(false);
-
-  // Usar el hook de toast
+  const [loading, setLoading] = useState(true);
+  
   const { toast, showToast, hideToast } = useToast();
 
-  // Función helper para mostrar mensajes (funciona en web y móvil)
-  const mostrarMensaje = (mensaje: string, tipo: "success" | "error" | "info" | "warning" = "info") => {
-    if (Platform.OS === 'web') {
-      // En web, usar el toast personalizado
-      showToast(mensaje, tipo);
-    } else {
-      // En móvil, usar Alert.alert
-      Alert.alert(tipo === "success" ? "Éxito" : tipo === "error" ? "Error" : "Información", mensaje);
-    }
-  };
+  useEffect(() => {
+    cargarProductos();
+  }, []);
 
   useEffect(() => {
     if (route.params?.cliente) {
@@ -87,22 +43,32 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
     }
   }, [route.params]);
 
+  // ✅ CORREGIDO: Agregar async/await
+  const cargarProductos = async () => {
+    console.log('🔄 Cargando productos...');
+    setLoading(true);
+    const productosDB = await getProductos();  // ← AGREGAR await
+    console.log('📦 Productos cargados:', productosDB.length);
+    setProductos(productosDB);
+    setLoading(false);
+  };
+
+  const mostrarMensaje = (mensaje: string, tipo: "success" | "error" | "info" | "warning" = "info") => {
+    if (Platform.OS === 'web') {
+      showToast(mensaje, tipo);
+    } else {
+      Alert.alert(tipo === "success" ? "Éxito" : tipo === "error" ? "Error" : "Información", mensaje);
+    }
+  };
+
   const agregarAlCarrito = (producto: Product, cantidad: number) => {
-    // Validar cliente
     if (!clienteSeleccionado) {
       mostrarMensaje("Debe seleccionar un cliente primero", "warning");
-
-      // Para web, también podemos mostrar un diálogo de confirmación
-      if (Platform.OS === 'web' && window.confirm("¿Desea ir a seleccionar un cliente?")) {
-        navigation.navigate("Clientes");
-      }
       return;
     }
 
-    // Buscar si ya existe en el carrito
     const itemExistente = carrito.find(item => item.producto.id === producto.id);
-
-    // Validar stock
+    
     if (itemExistente) {
       const nuevaCantidad = itemExistente.cantidad + cantidad;
       if (nuevaCantidad > producto.stock) {
@@ -116,7 +82,6 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       }
     }
 
-    // Actualizar carrito
     if (itemExistente) {
       setCarrito(prev =>
         prev.map(item =>
@@ -136,7 +101,6 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
     const producto = productos.find(p => p.id === productoId);
     if (!producto) return;
 
-    // Validar stock
     if (nuevaCantidad > producto.stock) {
       mostrarMensaje(`Stock insuficiente. Máximo disponible: ${producto.stock}`, "error");
       return;
@@ -147,7 +111,6 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       return;
     }
 
-    // Actualizar el estado
     setCarrito(prev =>
       prev.map(item =>
         item.producto.id === productoId
@@ -161,22 +124,20 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
   const eliminarDelCarrito = (productoId: string) => {
     const item = carrito.find(i => i.producto.id === productoId);
     setCarrito(prev => prev.filter(item => item.producto.id !== productoId));
-
+    
     if (item) {
       mostrarMensaje(`${item.producto.nombre} fue removido del carrito`, "info");
     }
   };
 
   const calcularSubtotal = () => {
-    return carrito.reduce((total, item) =>
+    return carrito.reduce((total, item) => 
       total + (item.producto.valorUnitario * item.cantidad), 0
     );
   };
 
-  const procesarCompra = () => {
-    console.log("🛒 Procesando compra...");
-
-    // Validaciones
+  // ✅ CORREGIDO: Agregar async/await
+  const procesarCompra = async () => {
     if (carrito.length === 0) {
       mostrarMensaje("Agregue productos al carrito antes de comprar", "warning");
       return;
@@ -191,9 +152,10 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
     const descuento = subTotal > 100 ? subTotal * 0.10 : 0;
     const total = subTotal - descuento;
 
-    // Crear encabezado
+    const encabezadoId = Date.now().toString();
+    
     const encabezado: Encabezado = {
-      id: Date.now().toString(),
+      id: encabezadoId,
       idCliente: clienteSeleccionado.id,
       fecha: new Date().toISOString().split('T')[0],
       subTotal,
@@ -201,36 +163,32 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       total
     };
 
-    console.log("✅ Compra registrada:", encabezado);
+    const detalles = carrito.map(item => ({
+      id: Date.now().toString() + Math.random().toString(),
+      idEncabezado: encabezadoId,
+      idProducto: item.producto.id,
+      cantidad: item.cantidad,
+      valor: item.producto.valorUnitario
+    }));
 
-    // Actualizar stock
-    setProductos(prev =>
-      prev.map(producto => {
-        const itemCarrito = carrito.find(item => item.producto.id === producto.id);
-        if (itemCarrito) {
-          return {
-            ...producto,
-            stock: producto.stock - itemCarrito.cantidad
-          };
-        }
-        return producto;
-      })
-    );
-
-    // Limpiar carrito y cerrar
-    setCarrito([]);
-    setShowCarrito(false);
-
-    // Mostrar mensaje de éxito
-    mostrarMensaje(
-      `¡Compra exitosa! Total: $${total.toFixed(2)} - Gracias ${clienteSeleccionado.nombre}`,
-      "success"
-    );
+    console.log('🛒 Procesando compra...');
+    const success = await saveCompra(encabezado, detalles);  // ← AGREGAR await
+    
+    if (success) {
+      await cargarProductos();  // ← AGREGAR await
+      setCarrito([]);
+      setShowCarrito(false);
+      mostrarMensaje(
+        `¡Compra exitosa! Total: $${total.toFixed(2)} - Gracias ${clienteSeleccionado.nombre}`,
+        "success"
+      );
+    } else {
+      mostrarMensaje("Error al procesar la compra", "error");
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Toast Personalizado para notificaciones */}
       <ToastPersonalizado
         visible={toast.visible}
         message={toast.message}
@@ -257,7 +215,7 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
           <Text style={styles.noClienteText}>
             Seleccione un cliente para continuar
           </Text>
-          <TouchableOpacity
+          <TouchableOpacity 
             style={styles.seleccionarClienteBtn}
             onPress={() => navigation.navigate("Clientes")}
           >
@@ -266,12 +224,12 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
         </View>
       ) : (
         <>
-          <TouchableOpacity
+          <TouchableOpacity 
             style={styles.carritoBtn}
             onPress={() => setShowCarrito(!showCarrito)}
           >
             <Text style={styles.carritoBtnText}>
-              🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) -
+              🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) - 
               Total: ${calcularSubtotal().toFixed(2)}
             </Text>
           </TouchableOpacity>
@@ -286,20 +244,24 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
             />
           )}
 
-          <FlatList
-            data={productos}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <ProductoItem
-                producto={item}
-                onAgregar={agregarAlCarrito}
-                showToast={showToast}  // ← OBLIGATORIO ahora
-              />
-            )}
-            ListEmptyComponent={
-              <Text style={styles.empty}>No hay productos disponibles</Text>
-            }
-          />
+          {loading ? (
+            <Text style={styles.loading}>Cargando productos...</Text>
+          ) : (
+            <FlatList
+              data={productos}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <ProductoItem
+                  producto={item}
+                  onAgregar={agregarAlCarrito}
+                  showToast={showToast}
+                />
+              )}
+              ListEmptyComponent={
+                <Text style={styles.empty}>No hay productos disponibles</Text>
+              }
+            />
+          )}
         </>
       )}
     </View>
@@ -369,6 +331,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   empty: {
+    color: "#94A3B8",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  loading: {
     color: "#94A3B8",
     textAlign: "center",
     marginTop: 20,

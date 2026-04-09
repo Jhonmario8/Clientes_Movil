@@ -1,5 +1,6 @@
 // App.tsx
-import React from "react";
+import 'react-native-gesture-handler';
+import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -11,6 +12,8 @@ import Home from "./screens/home";
 import ClientScreen from "./screens/ClienteScreen";
 import ProductosScreen from "./screens/ProductosScreen";
 import CustomDrawer from "./componentes/DrawerCustom";
+import { initDatabase } from "./modelo/database/DatabaseService";
+import AdminProductosScreen from "./screens/AdminProductosScreen";
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -35,11 +38,16 @@ function DrawerNavigator() {
       <Drawer.Screen name="Inicio" component={Home} />
       <Drawer.Screen name="Clientes" component={ClientScreen} />
       <Drawer.Screen name="Productos" component={ProductosScreen} />
+      <Drawer.Screen name="AdminProductos" component={AdminProductosScreen} />
     </Drawer.Navigator>
   );
 }
 
 export default function App() {
+  useEffect(() => {
+    initDatabase();
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator 
