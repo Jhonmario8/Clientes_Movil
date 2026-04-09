@@ -1,33 +1,40 @@
+// App.tsx
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
+import { createStackNavigator } from "@react-navigation/stack";
 
 import Splash from "./screens/splash";
 import Login from "./screens/login";
 import Registro from "./screens/registro";
 import Home from "./screens/home";
-import Cliente from "./screens/ClienteScreen";
+import ClientScreen from "./screens/ClienteScreen";
+import ProductosScreen from "./screens/ProductosScreen";
 import CustomDrawer from "./componentes/DrawerCustom";
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
-function DrawerMenu() {
+function DrawerNavigator() {
   return (
-   <Drawer.Navigator
-  drawerContent={(props) => <CustomDrawer {...props} />}
-  screenOptions={{
-    headerShown: false,
-    drawerType: "permanent", 
-    drawerStyle: {
-      width: 240,
-      backgroundColor: "#0F172A",
-    },
-  }}
->
+    <Drawer.Navigator 
+      drawerContent={(props) => <CustomDrawer {...props} />}
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: "#0F172A",
+        },
+        headerTintColor: "#F1F5F9",
+        headerTitleStyle: {
+          fontWeight: "bold",
+        },
+        drawerStyle: {
+          backgroundColor: "#0F172A",
+        },
+      }}
+    >
       <Drawer.Screen name="Inicio" component={Home} />
-      <Drawer.Screen name="Clientes" component={Cliente} />
+      <Drawer.Screen name="Clientes" component={ClientScreen} />
+      <Drawer.Screen name="Productos" component={ProductosScreen} />
     </Drawer.Navigator>
   );
 }
@@ -35,11 +42,16 @@ function DrawerMenu() {
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator 
+        initialRouteName="Splash"
+        screenOptions={{
+          headerShown: false
+        }}
+      >
         <Stack.Screen name="Splash" component={Splash} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Registro" component={Registro} />
-        <Stack.Screen name="Home" component={DrawerMenu} />
+        <Stack.Screen name="Home" component={DrawerNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,3 +1,4 @@
+// pantallas/Login.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,7 +8,6 @@ import {
   StyleSheet,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 const Login = ({ navigation }: any) => {
  
@@ -20,7 +20,6 @@ const Login = ({ navigation }: any) => {
     email: "jhonma@gmail.com",
     password: "Jhonma12.",
   };
-
 
   const handleLogin = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,7 +34,7 @@ const Login = ({ navigation }: any) => {
       setError("");
       setSuccess(true);
       await AsyncStorage.setItem('isLoggedIn', 'true');
-      navigation.replace("Home");;
+      navigation.replace("Home");
     } else {
       setSuccess(false);
       setError("Correo o contraseña incorrectos");
@@ -63,7 +62,6 @@ const Login = ({ navigation }: any) => {
         onChangeText={setPassword}
       />
 
-
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Iniciar sesión</Text>
       </TouchableOpacity>
@@ -71,10 +69,10 @@ const Login = ({ navigation }: any) => {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.footer}>
-        ¿No tienes cuenta?
+        ¿No tienes cuenta?{" "}
         <TouchableOpacity onPress={() => navigation.navigate("Registro")}>
-  <Text style={styles.link}>Regístrate</Text>
-</TouchableOpacity>
+          <Text style={styles.link}>Regístrate</Text>
+        </TouchableOpacity>
       </Text>
     </View>
   );

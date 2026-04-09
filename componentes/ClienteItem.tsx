@@ -1,24 +1,27 @@
+// componentes/ClienteItem.tsx
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
-export default function ClientItem({ client, onEdit, onDelete }: any) {
+export default function ClientItem({ client, onEdit, onDelete, onSelect }: any) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.name}>
-        {client.nombre} {client.apellido}
-      </Text>
-      <Text style={styles.text}>{client.correo}</Text>
-      <Text style={styles.text}>{client.fecha}</Text>
+    <TouchableOpacity onPress={onSelect} activeOpacity={0.7}>
+      <View style={styles.card}>
+        <Text style={styles.name}>
+          {client.nombre} {client.apellido}
+        </Text>
+        <Text style={styles.text}>{client.correo}</Text>
+        <Text style={styles.text}>{client.fecha}</Text>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.edit} onPress={onEdit}>
-          <Text style={styles.btnText}>Editar</Text>
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.edit} onPress={onEdit}>
+            <Text style={styles.btnText}>Editar</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.delete} onPress={onDelete}>
-          <Text style={styles.btnText}>Eliminar</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.delete} onPress={onDelete}>
+            <Text style={styles.btnText}>Eliminar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

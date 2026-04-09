@@ -1,3 +1,4 @@
+// componentes/CustomDrawer.tsx
 import React from "react";
 import {
   DrawerContentScrollView,
@@ -29,6 +30,11 @@ const CustomDrawer = (props: any) => {
         onPress={() => props.navigation.navigate("Clientes")}
       />
 
+      <DrawerItem
+        label="Productos"
+        labelStyle={styles.label}
+        onPress={() => props.navigation.navigate("Productos")}
+      />
 
       <DrawerItem
         label="Cerrar sesión"

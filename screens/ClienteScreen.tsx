@@ -1,3 +1,4 @@
+// pantallas/ClientScreen.tsx
 import { useState } from "react";
 import {
   View,
@@ -10,7 +11,7 @@ import ClientForm from "../componentes/ClienteForm";
 import ClientItem from "../componentes/ClienteItem";
 import { Client } from "../modelo/Cliente";
 
-export default function ClientScreen() {
+export default function ClientScreen({ navigation }: any) {
   const [clients, setClients] = useState<Client[]>([]);
 
   const [nombre, setNombre] = useState('');
@@ -72,6 +73,10 @@ export default function ClientScreen() {
     setClients(prev => prev.filter(c => c.id !== id));
   };
 
+  const handleSelectClient = (client: Client) => {
+    navigation.navigate("Productos", { cliente: client });
+  };
+
   return (
     <View style={styles.container}>
 
@@ -107,6 +112,7 @@ export default function ClientScreen() {
             client={item}
             onEdit={() => handleEdit(item)}
             onDelete={() => handleDelete(item.id)}
+            onSelect={() => handleSelectClient(item)}
           />
         )}
         ListEmptyComponent={
