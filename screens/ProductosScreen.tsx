@@ -6,15 +6,17 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  Alert
+  Alert,
+  Platform
 } from "react-native";
 import ProductoItem from "../componentes/ProductoItem";
 import { Product } from "../modelo/Product";
 import { Client } from "../modelo/Cliente";
 import CarritoDrawer from "../componentes/CarritoDrawer";
 import { Encabezado } from "../modelo/Encabezado";
+import ToastPersonalizado from "../componentes/ToastPersonalizado";
+import { useToast } from "../componentes/useToast";
 
-// Datos de ejemplo para productos
 const productosIniciales: Product[] = [
   {
     id: "1",
@@ -61,61 +63,82 @@ interface ProductosScreenProps {
 export default function ProductosScreen({ navigation, route }: ProductosScreenProps) {
   const [productos, setProductos] = useState<Product[]>(productosIniciales);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Client | null>(null);
-  const [carrito, setCarrito] = useState<Array<{producto: Product, cantidad: number}>>([]);
+  const [carrito, setCarrito] = useState<Array<{ producto: Product, cantidad: number }>>([]);
   const [showCarrito, setShowCarrito] = useState(false);
+
+  // Usar el hook de toast
+  const { toast, showToast, hideToast } = useToast();
+
+  // Función helper para mostrar mensajes (funciona en web y móvil)
+  const mostrarMensaje = (mensaje: string, tipo: "success" | "error" | "info" | "warning" = "info") => {
+    if (Platform.OS === 'web') {
+      // En web, usar el toast personalizado
+      showToast(mensaje, tipo);
+    } else {
+      // En móvil, usar Alert.alert
+      Alert.alert(tipo === "success" ? "Éxito" : tipo === "error" ? "Error" : "Información", mensaje);
+    }
+  };
 
   useEffect(() => {
     if (route.params?.cliente) {
       setClienteSeleccionado(route.params.cliente);
+      mostrarMensaje(`Cliente seleccionado: ${route.params.cliente.nombre}`, "success");
     }
   }, [route.params]);
 
   const agregarAlCarrito = (producto: Product, cantidad: number) => {
+    // Validar cliente
     if (!clienteSeleccionado) {
-      Alert.alert(
-        "Cliente requerido",
-        "Debe seleccionar un cliente primero",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Seleccionar Cliente", onPress: () => navigation.navigate("Clientes") }
-        ]
-      );
+      mostrarMensaje("Debe seleccionar un cliente primero", "warning");
+
+      // Para web, también podemos mostrar un diálogo de confirmación
+      if (Platform.OS === 'web' && window.confirm("¿Desea ir a seleccionar un cliente?")) {
+        navigation.navigate("Clientes");
+      }
       return;
     }
 
-    setCarrito(prev => {
-      const itemExistente = prev.find(item => item.producto.id === producto.id);
-      
-      if (itemExistente) {
-        const nuevaCantidad = itemExistente.cantidad + cantidad;
-        if (nuevaCantidad > producto.stock) {
-          Alert.alert("Error", "Stock insuficiente");
-          return prev;
-        }
-        
-        return prev.map(item =>
-          item.producto.id === producto.id
-            ? { ...item, cantidad: nuevaCantidad }
-            : item
-        );
-      } else {
-        if (cantidad > producto.stock) {
-          Alert.alert("Error", "Stock insuficiente");
-          return prev;
-        }
-        return [...prev, { producto, cantidad }];
-      }
-    });
+    // Buscar si ya existe en el carrito
+    const itemExistente = carrito.find(item => item.producto.id === producto.id);
 
-    Alert.alert("Éxito", `${producto.nombre} agregado al carrito`);
+    // Validar stock
+    if (itemExistente) {
+      const nuevaCantidad = itemExistente.cantidad + cantidad;
+      if (nuevaCantidad > producto.stock) {
+        mostrarMensaje(`Stock insuficiente. Solo hay ${producto.stock} unidades disponibles.`, "error");
+        return;
+      }
+    } else {
+      if (cantidad > producto.stock) {
+        mostrarMensaje(`Stock insuficiente. Solo hay ${producto.stock} unidades disponibles.`, "error");
+        return;
+      }
+    }
+
+    // Actualizar carrito
+    if (itemExistente) {
+      setCarrito(prev =>
+        prev.map(item =>
+          item.producto.id === producto.id
+            ? { ...item, cantidad: item.cantidad + cantidad }
+            : item
+        )
+      );
+      mostrarMensaje(`Se agregaron ${cantidad} unidad(es) más de ${producto.nombre}`, "success");
+    } else {
+      setCarrito(prev => [...prev, { producto, cantidad }]);
+      mostrarMensaje(`${producto.nombre} agregado al carrito (${cantidad} unidad(es))`, "success");
+    }
   };
 
   const actualizarCantidadCarrito = (productoId: string, nuevaCantidad: number) => {
     const producto = productos.find(p => p.id === productoId);
     if (!producto) return;
 
+    // Validar stock
     if (nuevaCantidad > producto.stock) {
-      Alert.alert("Error", "Stock insuficiente");
+      mostrarMensaje(`Stock insuficiente. Máximo disponible: ${producto.stock}`, "error");
       return;
     }
 
@@ -124,6 +147,7 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       return;
     }
 
+    // Actualizar el estado
     setCarrito(prev =>
       prev.map(item =>
         item.producto.id === productoId
@@ -131,28 +155,35 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
           : item
       )
     );
+    mostrarMensaje(`Cantidad actualizada`, "success");
   };
 
   const eliminarDelCarrito = (productoId: string) => {
+    const item = carrito.find(i => i.producto.id === productoId);
     setCarrito(prev => prev.filter(item => item.producto.id !== productoId));
+
+    if (item) {
+      mostrarMensaje(`${item.producto.nombre} fue removido del carrito`, "info");
+    }
   };
 
   const calcularSubtotal = () => {
-    return carrito.reduce((total, item) => 
+    return carrito.reduce((total, item) =>
       total + (item.producto.valorUnitario * item.cantidad), 0
     );
   };
 
   const procesarCompra = () => {
-    console.log("Procesando compra..."); // Debug
-    
+    console.log("🛒 Procesando compra...");
+
+    // Validaciones
     if (carrito.length === 0) {
-      Alert.alert("Carrito vacío", "Agregue productos al carrito");
+      mostrarMensaje("Agregue productos al carrito antes de comprar", "warning");
       return;
     }
 
     if (!clienteSeleccionado) {
-      Alert.alert("Error", "No hay cliente seleccionado");
+      mostrarMensaje("No hay cliente seleccionado", "error");
       return;
     }
 
@@ -170,7 +201,7 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       total
     };
 
-    console.log("Encabezado creado:", encabezado); // Debug
+    console.log("✅ Compra registrada:", encabezado);
 
     // Actualizar stock
     setProductos(prev =>
@@ -191,15 +222,22 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
     setShowCarrito(false);
 
     // Mostrar mensaje de éxito
-    Alert.alert(
-      "✅ ¡Compra Exitosa!",
-      `Total pagado: $${total.toFixed(2)}\n\nGracias por su compra, ${clienteSeleccionado.nombre}!`,
-      [{ text: "OK" }]
+    mostrarMensaje(
+      `¡Compra exitosa! Total: $${total.toFixed(2)} - Gracias ${clienteSeleccionado.nombre}`,
+      "success"
     );
   };
 
   return (
     <View style={styles.container}>
+      {/* Toast Personalizado para notificaciones */}
+      <ToastPersonalizado
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onClose={hideToast}
+      />
+
       <View style={styles.header}>
         <Text style={styles.title}>Catálogo de Productos</Text>
         {clienteSeleccionado && (
@@ -219,7 +257,7 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
           <Text style={styles.noClienteText}>
             Seleccione un cliente para continuar
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.seleccionarClienteBtn}
             onPress={() => navigation.navigate("Clientes")}
           >
@@ -228,12 +266,12 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
         </View>
       ) : (
         <>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.carritoBtn}
             onPress={() => setShowCarrito(!showCarrito)}
           >
             <Text style={styles.carritoBtnText}>
-              🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) - 
+              🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) -
               Total: ${calcularSubtotal().toFixed(2)}
             </Text>
           </TouchableOpacity>
@@ -255,6 +293,7 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
               <ProductoItem
                 producto={item}
                 onAgregar={agregarAlCarrito}
+                showToast={showToast}  // ← OBLIGATORIO ahora
               />
             )}
             ListEmptyComponent={

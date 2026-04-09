@@ -5,33 +5,43 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
-  Alert
+  TextInput
 } from "react-native";
 import { Product } from "../modelo/Product";
 
 interface ProductoItemProps {
   producto: Product;
   onAgregar: (producto: Product, cantidad: number) => void;
+  showToast: (message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
-export default function ProductoItem({ producto, onAgregar }: ProductoItemProps) {
+export default function ProductoItem({ producto, onAgregar, showToast }: ProductoItemProps) {
   const [cantidad, setCantidad] = useState("1");
   const [showInput, setShowInput] = useState(false);
 
   const handleAgregar = () => {
     const cantidadNum = parseInt(cantidad);
+    
+
     if (isNaN(cantidadNum) || cantidadNum <= 0) {
-      Alert.alert("Error", "Ingrese una cantidad válida");
+      showToast("Ingrese una cantidad válida (mayor a 0)", "error");
       return;
     }
+    
+    // Validar stock
     if (cantidadNum > producto.stock) {
-      Alert.alert("Error", "Stock insuficiente");
+      showToast(`Solo hay ${producto.stock} unidades disponibles de ${producto.nombre}`, "error");
       return;
     }
+    
+    // Si todo está bien, agregar al carrito
     onAgregar(producto, cantidadNum);
     setShowInput(false);
     setCantidad("1");
+  };
+
+  const handleSinStock = () => {
+    showToast(`${producto.nombre} no tiene unidades disponibles`, "warning");
   };
 
   return (
@@ -57,6 +67,7 @@ export default function ProductoItem({ producto, onAgregar }: ProductoItemProps)
             keyboardType="numeric"
             placeholder="Cant."
             placeholderTextColor="#94A3B8"
+            autoFocus
           />
           <TouchableOpacity style={styles.confirmarBtn} onPress={handleAgregar}>
             <Text style={styles.confirmarText}>✓</Text>
@@ -77,8 +88,13 @@ export default function ProductoItem({ producto, onAgregar }: ProductoItemProps)
             styles.agregarBtn,
             producto.stock === 0 && styles.agregarBtnDisabled
           ]} 
-          onPress={() => setShowInput(true)}
-          disabled={producto.stock === 0}
+          onPress={() => {
+            if (producto.stock === 0) {
+              handleSinStock();
+              return;
+            }
+            setShowInput(true);
+          }}
         >
           <Text style={styles.agregarText}>
             {producto.stock === 0 ? "Sin Stock" : "Agregar"}
