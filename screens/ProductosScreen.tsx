@@ -11,43 +11,35 @@ import {
 } from "react-native";
 import ProductoItem from "../componentes/ProductoItem";
 import { Product } from "../modelo/Product";
-import { Client } from "../modelo/Cliente";
 import CarritoDrawer from "../componentes/CarritoDrawer";
 import { Encabezado } from "../modelo/Encabezado";
 import ToastPersonalizado from "../componentes/ToastPersonalizado";
 import { useToast } from "../componentes/useToast";
-import { getProductos, saveCompra } from "../modelo/database/DatabaseService";
+import { getProductos, saveCompra } from "../services/firebaseService";
+import { useAuth } from "../context/AuthContext";
 
 interface ProductosScreenProps {
   navigation: any;
-  route: any;
 }
 
-export default function ProductosScreen({ navigation, route }: ProductosScreenProps) {
+export default function ProductosScreen({ navigation }: ProductosScreenProps) {
+  const { user, rol } = useAuth();  // ← OBTENER USUARIO AUTENTICADO
+
   const [productos, setProductos] = useState<Product[]>([]);
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<Client | null>(null);
   const [carrito, setCarrito] = useState<Array<{producto: Product, cantidad: number}>>([]);
   const [showCarrito, setShowCarrito] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
     cargarProductos();
   }, []);
 
-  useEffect(() => {
-    if (route.params?.cliente) {
-      setClienteSeleccionado(route.params.cliente);
-      mostrarMensaje(`Cliente seleccionado: ${route.params.cliente.nombre}`, "success");
-    }
-  }, [route.params]);
-
-  // ✅ CORREGIDO: Agregar async/await
   const cargarProductos = async () => {
     console.log('🔄 Cargando productos...');
     setLoading(true);
-    const productosDB = await getProductos();  // ← AGREGAR await
+    const productosDB = await getProductos();
     console.log('📦 Productos cargados:', productosDB.length);
     setProductos(productosDB);
     setLoading(false);
@@ -62,13 +54,11 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
   };
 
   const agregarAlCarrito = (producto: Product, cantidad: number) => {
-    if (!clienteSeleccionado) {
-      mostrarMensaje("Debe seleccionar un cliente primero", "warning");
-      return;
-    }
+    // Ya no necesitamos validar cliente seleccionado
+    // El usuario autenticado SIEMPRE puede comprar
 
     const itemExistente = carrito.find(item => item.producto.id === producto.id);
-    
+
     if (itemExistente) {
       const nuevaCantidad = itemExistente.cantidad + cantidad;
       if (nuevaCantidad > producto.stock) {
@@ -84,11 +74,11 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
 
     if (itemExistente) {
       setCarrito(prev =>
-        prev.map(item =>
-          item.producto.id === producto.id
-            ? { ...item, cantidad: item.cantidad + cantidad }
-            : item
-        )
+          prev.map(item =>
+              item.producto.id === producto.id
+                  ? { ...item, cantidad: item.cantidad + cantidad }
+                  : item
+          )
       );
       mostrarMensaje(`Se agregaron ${cantidad} unidad(es) más de ${producto.nombre}`, "success");
     } else {
@@ -112,11 +102,11 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
     }
 
     setCarrito(prev =>
-      prev.map(item =>
-        item.producto.id === productoId
-          ? { ...item, cantidad: nuevaCantidad }
-          : item
-      )
+        prev.map(item =>
+            item.producto.id === productoId
+                ? { ...item, cantidad: nuevaCantidad }
+                : item
+        )
     );
     mostrarMensaje(`Cantidad actualizada`, "success");
   };
@@ -124,39 +114,40 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
   const eliminarDelCarrito = (productoId: string) => {
     const item = carrito.find(i => i.producto.id === productoId);
     setCarrito(prev => prev.filter(item => item.producto.id !== productoId));
-    
+
     if (item) {
       mostrarMensaje(`${item.producto.nombre} fue removido del carrito`, "info");
     }
   };
 
   const calcularSubtotal = () => {
-    return carrito.reduce((total, item) => 
-      total + (item.producto.valorUnitario * item.cantidad), 0
+    return carrito.reduce((total, item) =>
+        total + (item.producto.valorUnitario * item.cantidad), 0
     );
   };
 
-  // ✅ CORREGIDO: Agregar async/await
   const procesarCompra = async () => {
     if (carrito.length === 0) {
       mostrarMensaje("Agregue productos al carrito antes de comprar", "warning");
       return;
     }
 
-    if (!clienteSeleccionado) {
-      mostrarMensaje("No hay cliente seleccionado", "error");
-      return;
-    }
+    // El cliente es el usuario autenticado
+    const clienteInfo = {
+      id: user.uid,
+      nombre: user.email?.split('@')[0] || 'Usuario',
+      email: user.email
+    };
 
     const subTotal = calcularSubtotal();
     const descuento = subTotal > 100 ? subTotal * 0.10 : 0;
     const total = subTotal - descuento;
 
     const encabezadoId = Date.now().toString();
-    
+
     const encabezado: Encabezado = {
       id: encabezadoId,
-      idCliente: clienteSeleccionado.id,
+      idCliente: user.uid,  // ← USAR UID DEL USUARIO AUTENTICADO
       fecha: new Date().toISOString().split('T')[0],
       subTotal,
       descuentoTotal: descuento,
@@ -171,16 +162,16 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
       valor: item.producto.valorUnitario
     }));
 
-    console.log('🛒 Procesando compra...');
-    const success = await saveCompra(encabezado, detalles);  // ← AGREGAR await
-    
+    console.log('🛒 Procesando compra para usuario:', user.email);
+    const success = await saveCompra(encabezado, detalles);
+
     if (success) {
-      await cargarProductos();  // ← AGREGAR await
+      await cargarProductos();
       setCarrito([]);
       setShowCarrito(false);
       mostrarMensaje(
-        `¡Compra exitosa! Total: $${total.toFixed(2)} - Gracias ${clienteSeleccionado.nombre}`,
-        "success"
+          `¡Compra exitosa! Total: $${total.toFixed(2)} - Gracias ${clienteInfo.nombre}`,
+          "success"
       );
     } else {
       mostrarMensaje("Error al procesar la compra", "error");
@@ -188,83 +179,69 @@ export default function ProductosScreen({ navigation, route }: ProductosScreenPr
   };
 
   return (
-    <View style={styles.container}>
-      <ToastPersonalizado
-        visible={toast.visible}
-        message={toast.message}
-        type={toast.type}
-        onClose={hideToast}
-      />
+      <View style={styles.container}>
+        <ToastPersonalizado
+            visible={toast.visible}
+            message={toast.message}
+            type={toast.type}
+            onClose={hideToast}
+        />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Catálogo de Productos</Text>
-        {clienteSeleccionado && (
-          <View style={styles.clienteInfo}>
-            <Text style={styles.clienteText}>
-              Cliente: {clienteSeleccionado.nombre} {clienteSeleccionado.apellido}
+        <View style={styles.header}>
+          <Text style={styles.title}>Catálogo de Productos</Text>
+
+          {/* INFORMACIÓN DEL USUARIO AUTENTICADO */}
+          <View style={styles.userInfo}>
+            <Text style={styles.userText}>
+              👤 Comprando como: {user?.email}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Clientes")}>
-              <Text style={styles.cambiarCliente}>Cambiar</Text>
-            </TouchableOpacity>
+            <View style={styles.rolBadge}>
+              <Text style={styles.rolText}>
+                {rol === 'admin' ? '👑 Admin' : '🛍️ Cliente'}
+              </Text>
+            </View>
           </View>
-        )}
-      </View>
-
-      {!clienteSeleccionado ? (
-        <View style={styles.noClienteContainer}>
-          <Text style={styles.noClienteText}>
-            Seleccione un cliente para continuar
-          </Text>
-          <TouchableOpacity 
-            style={styles.seleccionarClienteBtn}
-            onPress={() => navigation.navigate("Clientes")}
-          >
-            <Text style={styles.seleccionarClienteText}>Ir a Clientes</Text>
-          </TouchableOpacity>
         </View>
-      ) : (
-        <>
-          <TouchableOpacity 
+
+        <TouchableOpacity
             style={styles.carritoBtn}
             onPress={() => setShowCarrito(!showCarrito)}
-          >
-            <Text style={styles.carritoBtnText}>
-              🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) - 
-              Total: ${calcularSubtotal().toFixed(2)}
-            </Text>
-          </TouchableOpacity>
+        >
+          <Text style={styles.carritoBtnText}>
+            🛒 Carrito ({carrito.reduce((total, item) => total + item.cantidad, 0)} items) -
+            Total: ${calcularSubtotal().toFixed(2)}
+          </Text>
+        </TouchableOpacity>
 
-          {showCarrito && (
+        {showCarrito && (
             <CarritoDrawer
-              items={carrito}
-              onUpdateCantidad={actualizarCantidadCarrito}
-              onEliminar={eliminarDelCarrito}
-              onComprar={procesarCompra}
-              onClose={() => setShowCarrito(false)}
+                items={carrito}
+                onUpdateCantidad={actualizarCantidadCarrito}
+                onEliminar={eliminarDelCarrito}
+                onComprar={procesarCompra}
+                onClose={() => setShowCarrito(false)}
             />
-          )}
+        )}
 
-          {loading ? (
+        {loading ? (
             <Text style={styles.loading}>Cargando productos...</Text>
-          ) : (
+        ) : (
             <FlatList
-              data={productos}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <ProductoItem
-                  producto={item}
-                  onAgregar={agregarAlCarrito}
-                  showToast={showToast}
-                />
-              )}
-              ListEmptyComponent={
-                <Text style={styles.empty}>No hay productos disponibles</Text>
-              }
+                data={productos}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                    <ProductoItem
+                        producto={item}
+                        onAgregar={agregarAlCarrito}
+                        showToast={showToast}
+                    />
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.empty}>No hay productos disponibles</Text>
+                }
             />
-          )}
-        </>
-      )}
-    </View>
+        )}
+      </View>
   );
 }
 
@@ -283,20 +260,27 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
   },
-  clienteInfo: {
+  userInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#1E293B",
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
   },
-  clienteText: {
+  userText: {
     color: "#F1F5F9",
     fontSize: 14,
   },
-  cambiarCliente: {
-    color: "#3B82F6",
+  rolBadge: {
+    backgroundColor: "#3B82F6",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  rolText: {
+    color: "#F1F5F9",
+    fontSize: 12,
     fontWeight: "bold",
   },
   carritoBtn: {
@@ -310,25 +294,6 @@ const styles = StyleSheet.create({
     color: "#F1F5F9",
     fontWeight: "bold",
     fontSize: 16,
-  },
-  noClienteContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  noClienteText: {
-    color: "#94A3B8",
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  seleccionarClienteBtn: {
-    backgroundColor: "#3B82F6",
-    padding: 15,
-    borderRadius: 8,
-  },
-  seleccionarClienteText: {
-    color: "#F1F5F9",
-    fontWeight: "bold",
   },
   empty: {
     color: "#94A3B8",

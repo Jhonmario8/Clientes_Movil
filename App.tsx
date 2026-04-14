@@ -1,66 +1,75 @@
 // App.tsx
 import 'react-native-gesture-handler';
-import React, { useEffect } from "react";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createStackNavigator } from "@react-navigation/stack";
 
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import Splash from "./screens/splash";
 import Login from "./screens/login";
 import Registro from "./screens/registro";
 import Home from "./screens/home";
 import ClientScreen from "./screens/ClienteScreen";
 import ProductosScreen from "./screens/ProductosScreen";
-import CustomDrawer from "./componentes/DrawerCustom";
-import { initDatabase } from "./modelo/database/DatabaseService";
 import AdminProductosScreen from "./screens/AdminProductosScreen";
+import CustomDrawer from "./componentes/DrawerCustom";
+
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
 function DrawerNavigator() {
-  return (
-    <Drawer.Navigator 
-      drawerContent={(props) => <CustomDrawer {...props} />}
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#0F172A",
-        },
-        headerTintColor: "#F1F5F9",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-        drawerStyle: {
-          backgroundColor: "#0F172A",
-        },
-      }}
-    >
-      <Drawer.Screen name="Inicio" component={Home} />
-      <Drawer.Screen name="Clientes" component={ClientScreen} />
-      <Drawer.Screen name="Productos" component={ProductosScreen} />
-      <Drawer.Screen name="AdminProductos" component={AdminProductosScreen} />
-    </Drawer.Navigator>
-  );
+    const { isAdmin } = useAuth();
+
+    return (
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawer {...props} />}
+            screenOptions={{
+                headerStyle: { backgroundColor: "#0F172A" },
+                headerTintColor: "#F1F5F9",
+                drawerStyle: { backgroundColor: "#0F172A" },
+            }}
+        >
+            <Drawer.Screen name="Inicio" component={Home} />
+            <Drawer.Screen name="Clientes" component={ClientScreen} />
+            <Drawer.Screen name="Productos" component={ProductosScreen} />
+
+            {/* SOLO VISIBLE PARA ADMIN */}
+            {isAdmin && (
+                <Drawer.Screen name="AdminProductos" component={AdminProductosScreen} />
+            )}
+        </Drawer.Navigator>
+    );
+}
+
+function AppNavigator() {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return <Splash />;
+    }
+
+    return (
+        <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {user ? (
+                    <Stack.Screen name="Home" component={DrawerNavigator} />
+                ) : (
+                    <>
+                        <Stack.Screen name="Login" component={Login} />
+                        <Stack.Screen name="Registro" component={Registro} />
+                    </>
+                )}
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
 }
 
 export default function App() {
-  useEffect(() => {
-    initDatabase();
-  }, []);
-
-  return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="Splash"
-        screenOptions={{
-          headerShown: false
-        }}
-      >
-        <Stack.Screen name="Splash" component={Splash} />
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="Registro" component={Registro} />
-        <Stack.Screen name="Home" component={DrawerNavigator} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+    return (
+        <AuthProvider>
+            <AppNavigator />
+        </AuthProvider>
+    );
 }

@@ -5,14 +5,17 @@ import {
   FlatList,
   StyleSheet,
   Text,
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from "react-native";
 import ClientForm from "../componentes/ClienteForm";
 import ClientItem from "../componentes/ClienteItem";
 import { Client } from "../modelo/Cliente";
-import { getClientes, saveCliente, deleteCliente } from "../modelo/database/DatabaseService";
+import { getClientes, saveCliente, deleteCliente } from "../services/firebaseService";
+import { useAuth } from "../context/AuthContext";
 
 export default function ClientScreen({ navigation }: any) {
+  const { isAdmin } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -26,37 +29,50 @@ export default function ClientScreen({ navigation }: any) {
     cargarClientes();
   }, []);
 
-  // ✅ CORREGIDO: Agregar async/await
   const cargarClientes = async () => {
     console.log('🔄 Cargando clientes...');
     setLoading(true);
-    const clientesDB = await getClientes();  // ← AGREGAR await
+    const clientesDB = await getClientes();
     console.log('📊 Clientes cargados:', clientesDB.length);
     setClients(clientesDB);
     setLoading(false);
   };
 
-  // ✅ CORREGIDO: Agregar async/await
+  // pantallas/ClientScreen.tsx
+
   const handleSave = async () => {
-    if (!nombre || !apellido || !correo || !fecha) {
-      console.log('⚠️ Campos incompletos');
+    if (!isAdmin) {
+      Alert.alert("Acceso denegado", "Solo los administradores pueden modificar clientes");
       return;
     }
 
-    const client: Client = {
-      id: editingId || Date.now().toString(),
+    if (!nombre || !apellido || !correo || !fecha) {
+      Alert.alert("Error", "Todos los campos son obligatorios");
+      return;
+    }
+
+    // ✅ SOLO PASAR ID SI ESTÁS EDITANDO
+    const client: any = {
       nombre,
       apellido,
       correo,
       fecha,
     };
 
-    console.log('💾 Guardando cliente:', client.nombre);
-    const success = await saveCliente(client);  // ← AGREGAR await
-    
+    // Solo agregar ID si estamos editando
+    if (editingId) {
+      client.id = editingId;
+    }
+
+    console.log('💾 Guardando cliente:', client);
+    const success = await saveCliente(client);
+
     if (success) {
-      await cargarClientes();  // ← AGREGAR await
+      await cargarClientes();
       limpiarFormulario();
+      Alert.alert("Éxito", editingId ? "Cliente actualizado" : "Cliente creado");
+    } else {
+      Alert.alert("Error", "No se pudo guardar el cliente");
     }
   };
 
@@ -74,6 +90,12 @@ export default function ClientScreen({ navigation }: any) {
   };
 
   const handleEdit = (client: Client) => {
+    if (!isAdmin) {
+      Alert.alert("Acceso denegado", "Solo los administradores pueden editar clientes");
+      return;
+    }
+
+    console.log('✏️ Editando cliente:', client.nombre);
     setNombre(client.nombre);
     setApellido(client.apellido);
     setCorreo(client.correo);
@@ -82,65 +104,95 @@ export default function ClientScreen({ navigation }: any) {
     setShowForm(true);
   };
 
-  // ✅ CORREGIDO: Agregar async/await
-  const handleDelete = async (id: string) => {
-    console.log('🗑️ Eliminando cliente:', id);
-    const success = await deleteCliente(id);  // ← AGREGAR await
-    if (success) {
-      await cargarClientes();  // ← AGREGAR await
-    }
-  };
+  const handleDelete = (id: string, nombre: string) => {
+    console.log('🗑️ handleDelete llamado - ID:', id, 'Nombre:', nombre);
 
-  const handleSelectClient = (client: Client) => {
-    navigation.navigate("Productos", { cliente: client });
+    if (!isAdmin) {
+      Alert.alert("Acceso denegado", "Solo los administradores pueden eliminar clientes");
+      return;
+    }
+
+    Alert.alert(
+        "Confirmar eliminación",
+        `¿Estás seguro de eliminar a "${nombre}"?`,
+        [
+          {
+            text: "Cancelar",
+            style: "cancel"
+          },
+          {
+            text: "Eliminar",
+            style: "destructive",
+            onPress: async () => {
+              console.log('✅ Confirmado - Eliminando cliente con ID:', id);
+              const success = await deleteCliente(id);
+              console.log('Resultado de deleteCliente:', success);
+
+              if (success) {
+                await cargarClientes();
+                Alert.alert("Éxito", "Cliente eliminado");
+              } else {
+                Alert.alert("Error", "No se pudo eliminar el cliente");
+              }
+            }
+          }
+        ]
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Clientes</Text>
-
-      {!showForm && (
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
-          <Text style={styles.addButtonText}>Agregar Nuevo Cliente</Text>
-        </TouchableOpacity>
-      )}
-
-      {showForm && (
-        <ClientForm
-          nombre={nombre}
-          apellido={apellido}
-          correo={correo}
-          fecha={fecha}
-          setNombre={setNombre}
-          setApellido={setApellido}
-          setCorreo={setCorreo}
-          setFecha={setFecha}
-          onSave={handleSave}
-          editing={!!editingId}
-          onCancel={handleCancel}
-        />
-      )}
-
-      {loading ? (
-        <Text style={styles.loading}>Cargando clientes...</Text>
-      ) : (
-        <FlatList
-          data={clients}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <ClientItem
-              client={item}
-              onEdit={() => handleEdit(item)}
-              onDelete={() => handleDelete(item.id)}
-              onSelect={() => handleSelectClient(item)}
-            />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Clientes</Text>
+          {!isAdmin && (
+              <View style={styles.clienteBadge}>
+                <Text style={styles.clienteBadgeText}>Modo Cliente - Solo lectura</Text>
+              </View>
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No hay clientes aún</Text>
-          }
-        />
-      )}
-    </View>
+        </View>
+
+        {!showForm && isAdmin && (
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
+              <Text style={styles.addButtonText}>➕ Agregar Nuevo Cliente</Text>
+            </TouchableOpacity>
+        )}
+
+        {showForm && isAdmin && (
+            <ClientForm
+                nombre={nombre}
+                apellido={apellido}
+                correo={correo}
+                fecha={fecha}
+                setNombre={setNombre}
+                setApellido={setApellido}
+                setCorreo={setCorreo}
+                setFecha={setFecha}
+                onSave={handleSave}
+                editing={!!editingId}
+                onCancel={handleCancel}
+            />
+        )}
+
+        {loading ? (
+            <Text style={styles.loading}>Cargando clientes...</Text>
+        ) : (
+            <FlatList
+                data={clients}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                    <ClientItem
+                        client={item}
+                        onEdit={isAdmin ? () => handleEdit(item) : undefined}
+                        onDelete={isAdmin ? () => handleDelete(item.id, item.nombre) : undefined}  // ← ¡CORREGIDO!
+                        showAdminControls={isAdmin}
+                    />
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.empty}>No hay clientes registrados</Text>
+                }
+            />
+        )}
+      </View>
   );
 }
 
@@ -150,15 +202,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F172A",
     padding: 20,
   },
+  header: {
+    marginBottom: 15,
+  },
   title: {
     color: "#F1F5F9",
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 15,
+    marginBottom: 5,
+  },
+  clienteBadge: {
+    backgroundColor: "#1E293B",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 5,
+  },
+  clienteBadgeText: {
+    color: "#94A3B8",
+    fontSize: 12,
   },
   addButton: {
     backgroundColor: "#10B981",
-    padding: 12,
+    padding: 15,
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 15,

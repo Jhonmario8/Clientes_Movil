@@ -1,9 +1,23 @@
 // componentes/ClienteItem.tsx
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
-export default function ClientItem({ client, onEdit, onDelete, onSelect }: any) {
-  return (
-    <TouchableOpacity onPress={onSelect} activeOpacity={0.7}>
+interface ClientItemProps {
+  client: any;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onSelect?: () => void;  // ← HACER OPCIONAL
+  showAdminControls?: boolean;
+}
+
+export default function ClientItem({
+                                     client,
+                                     onEdit,
+                                     onDelete,
+                                     onSelect,
+                                     showAdminControls = false
+                                   }: ClientItemProps) {
+
+  const CardContent = () => (
       <View style={styles.card}>
         <Text style={styles.name}>
           {client.nombre} {client.apellido}
@@ -11,18 +25,34 @@ export default function ClientItem({ client, onEdit, onDelete, onSelect }: any) 
         <Text style={styles.text}>{client.correo}</Text>
         <Text style={styles.text}>{client.fecha}</Text>
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.edit} onPress={onEdit}>
-            <Text style={styles.btnText}>Editar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.delete} onPress={onDelete}>
-            <Text style={styles.btnText}>Eliminar</Text>
-          </TouchableOpacity>
-        </View>
+        {showAdminControls && (onEdit || onDelete) && (
+            <View style={styles.actions}>
+              {onEdit && (
+                  <TouchableOpacity style={styles.edit} onPress={onEdit}>
+                    <Text style={styles.btnText}>Editar</Text>
+                  </TouchableOpacity>
+              )}
+              {onDelete && (
+                  <TouchableOpacity style={styles.delete} onPress={onDelete}>
+                    <Text style={styles.btnText}>Eliminar</Text>
+                  </TouchableOpacity>
+              )}
+            </View>
+        )}
       </View>
-    </TouchableOpacity>
   );
+
+  // Si hay onSelect, envolver en TouchableOpacity
+  if (onSelect) {
+    return (
+        <TouchableOpacity onPress={onSelect} activeOpacity={0.7}>
+          <CardContent />
+        </TouchableOpacity>
+    );
+  }
+
+  // Si no, retornar solo el contenido
+  return <CardContent />;
 }
 
 const styles = StyleSheet.create({

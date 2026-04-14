@@ -11,9 +11,11 @@ import {
 import ProductoForm from "../componentes/ProductForm";
 import ProductoAdminItem from "../componentes/ProductAdminItem";
 import { Product } from "../modelo/Product";
-import { getProductos, saveProducto, deleteProducto } from "../modelo/database/DatabaseService";
+import { getProductos, saveProducto, deleteProducto } from "../services/firebaseService";
+import { useAuth } from "../context/AuthContext";
 
-export default function AdminProductosScreen() {
+export default function AdminProductosScreen({ navigation }: any) {
+  const { isAdmin } = useAuth();
   const [productos, setProductos] = useState<Product[]>([]);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -24,12 +26,23 @@ export default function AdminProductosScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verificar acceso de administrador
+    if (!isAdmin) {
+      Alert.alert(
+          "Acceso denegado",
+          "Solo los administradores pueden acceder a esta sección",
+          [{ text: "OK", onPress: () => navigation.replace("Inicio") }]
+      );
+      return;
+    }
     cargarProductos();
-  }, []);
+  }, [isAdmin]);
 
   const cargarProductos = async () => {
+    console.log('🔄 Cargando productos...');
     setLoading(true);
     const productosDB = await getProductos();
+    console.log('📦 Productos cargados:', productosDB.length);
     setProductos(productosDB);
     setLoading(false);
   };
@@ -40,16 +53,30 @@ export default function AdminProductosScreen() {
       return;
     }
 
+    const precio = parseFloat(valorUnitario);
+    const cantidadStock = parseInt(stock);
+
+    if (isNaN(precio) || precio <= 0) {
+      Alert.alert("Error", "El valor unitario debe ser un número mayor a 0");
+      return;
+    }
+
+    if (isNaN(cantidadStock) || cantidadStock < 0) {
+      Alert.alert("Error", "El stock debe ser un número mayor o igual a 0");
+      return;
+    }
+
     const producto: Product = {
       id: editingId || Date.now().toString(),
       nombre,
       descripcion,
-      valorUnitario: parseFloat(valorUnitario),
-      stock: parseInt(stock)
+      valorUnitario: precio,
+      stock: cantidadStock
     };
 
+    console.log('💾 Guardando producto:', producto.nombre);
     const success = await saveProducto(producto);
-    
+
     if (success) {
       await cargarProductos();
       limpiarFormulario();
@@ -77,72 +104,89 @@ export default function AdminProductosScreen() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string, nombre: string) => {
+  const handleDelete = (id: string, nombre: string) => {
     Alert.alert(
-      "Confirmar eliminación",
-      `¿Estás seguro de eliminar "${nombre}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Eliminar", 
-          style: "destructive",
-          onPress: async () => {
-            const success = await deleteProducto(id);
-            if (success) {
-              await cargarProductos();
-              Alert.alert("Éxito", "Producto eliminado");
+        "Confirmar eliminación",
+        `¿Estás seguro de eliminar "${nombre}"?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Eliminar",
+            style: "destructive",
+            onPress: async () => {
+              const success = await deleteProducto(id);
+              if (success) {
+                await cargarProductos();
+                Alert.alert("Éxito", "Producto eliminado");
+              } else {
+                Alert.alert("Error", "No se pudo eliminar el producto");
+              }
             }
           }
-        }
-      ]
+        ]
     );
   };
 
+  // Si no es admin, mostrar mensaje mientras redirige
+  if (!isAdmin) {
+    return (
+        <View style={[styles.container, styles.centerContent]}>
+          <Text style={styles.accessDenied}>Acceso denegado</Text>
+          <Text style={styles.accessDeniedSub}>Redirigiendo...</Text>
+        </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Administrar Productos</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Administrar Productos</Text>
+          <View style={styles.adminBadge}>
+            <Text style={styles.adminBadgeText}>👑 Modo Administrador</Text>
+          </View>
+        </View>
 
-      {!showForm && (
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
-          <Text style={styles.addButtonText}>➕ Agregar Nuevo Producto</Text>
-        </TouchableOpacity>
-      )}
+        {!showForm && (
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
+              <Text style={styles.addButtonText}>➕ Agregar Nuevo Producto</Text>
+            </TouchableOpacity>
+        )}
 
-      {showForm && (
-        <ProductoForm
-          nombre={nombre}
-          descripcion={descripcion}
-          valorUnitario={valorUnitario}
-          stock={stock}
-          setNombre={setNombre}
-          setDescripcion={setDescripcion}
-          setValorUnitario={setValorUnitario}
-          setStock={setStock}
-          onSave={handleSave}
-          editing={!!editingId}
-          onCancel={limpiarFormulario}
-        />
-      )}
-
-      {loading ? (
-        <Text style={styles.loading}>Cargando productos...</Text>
-      ) : (
-        <FlatList
-          data={productos}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <ProductoAdminItem
-              producto={item}
-              onEdit={() => handleEdit(item)}
-              onDelete={() => handleDelete(item.id, item.nombre)}
+        {showForm && (
+            <ProductoForm
+                nombre={nombre}
+                descripcion={descripcion}
+                valorUnitario={valorUnitario}
+                stock={stock}
+                setNombre={setNombre}
+                setDescripcion={setDescripcion}
+                setValorUnitario={setValorUnitario}
+                setStock={setStock}
+                onSave={handleSave}
+                editing={!!editingId}
+                onCancel={limpiarFormulario}
             />
-          )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No hay productos registrados</Text>
-          }
-        />
-      )}
-    </View>
+        )}
+
+        {loading ? (
+            <Text style={styles.loading}>Cargando productos...</Text>
+        ) : (
+            <FlatList
+                data={productos}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                    <ProductoAdminItem
+                        producto={item}
+                        onEdit={() => handleEdit(item)}
+                        onDelete={() => handleDelete(item.id, item.nombre)}
+                    />
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.empty}>No hay productos registrados</Text>
+                }
+            />
+        )}
+      </View>
   );
 }
 
@@ -152,11 +196,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F172A",
     padding: 20,
   },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    marginBottom: 15,
+  },
   title: {
     color: "#F1F5F9",
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 15,
+    marginBottom: 5,
+  },
+  adminBadge: {
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 5,
+  },
+  adminBadgeText: {
+    color: "#F1F5F9",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   addButton: {
     backgroundColor: "#8B5CF6",
@@ -179,5 +243,15 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     textAlign: "center",
     marginTop: 20,
+  },
+  accessDenied: {
+    color: "#EF4444",
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  accessDeniedSub: {
+    color: "#94A3B8",
+    fontSize: 16,
   },
 });
